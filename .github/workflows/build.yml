@@ -89,7 +89,7 @@ jobs:
           cwd: /tmp
           files: |
             xmrig-nightly
-          outPath: xmrig-nightly.tar.gz
+          outPath: xmrig-nightly-linux-static-x64.tar.gz
           
       - name: Release (Nightly)
         uses: softprops/action-gh-release@v1
@@ -97,7 +97,7 @@ jobs:
           prerelease: true
           tag_name: "nightly"
           files: |
-            ./xmrig-nightly.tar.gz
+            ./xmrig-nightly-linux-static-x64.tar.gz
 
   release:
      runs-on: ubuntu-latest
@@ -128,7 +128,7 @@ jobs:
           cwd: /tmp
           files: |
             xmrig-${{env.VER}}
-          outPath: xmrig-${{env.VER}}.tar.gz
+          outPath: xmrig-${{env.VER}}-linux-static-x64.tar.gz
           
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -136,4 +136,4 @@ jobs:
           tag_name: ${{env.VERSION}}
           body: "Changelog: https://github.com/xmrig/xmrig/releases/tag/${{env.VERSION}}"
           files: |
-            ./xmrig-${{env.VER}}.tar.gz
+            ./xmrig-${{env.VER}}-linux-static-x64.tar.gz
