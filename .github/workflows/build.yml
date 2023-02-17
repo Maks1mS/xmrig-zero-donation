@@ -134,5 +134,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{env.VERSION}}
+          body: "Changelog: https://github.com/xmrig/xmrig/releases/tag/${{env.VERSION}}"
           files: |
             ./xmrig-${{env.VER}}.tar.gz
