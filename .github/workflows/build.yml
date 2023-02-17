@@ -1,0 +1,138 @@
+name: Build
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'xmrig'
+      - 'patches/**'
+  
+jobs:
+  build-static:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - uses: jirutka/setup-alpine@v1
+      with:
+        branch: v3.15
+        packages: >
+           git 
+           make 
+           cmake 
+           libstdc++ 
+           gcc 
+           g++ 
+           automake 
+           libtool 
+           autoconf 
+           linux-headers
+
+    - name: Apply patches
+      working-directory: xmrig
+      run: |
+        git apply < ../patches/*.patch
+
+    - name: Build
+      working-directory: xmrig
+      run: |
+        mkdir build
+        cd scripts && ./build_deps.sh && cd ../build
+        cmake .. -DXMRIG_DEPS=scripts/deps -DBUILD_STATIC=ON
+        make -j$(nproc)
+      shell: alpine.sh {0}
+    
+    - name: Verify
+      working-directory: xmrig
+      run: |
+        chmod +x build/xmrig && build/xmrig --version
+    
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-static
+        path: |
+          xmrig/build/xmrig
+
+    - name: Check xmrig tag
+      id: xmrig_tag_result
+      working-directory: xmrig
+      run: echo "XMRIG_TAG=$(git tag --points-at HEAD)" >> $GITHUB_OUTPUT
+
+    outputs:
+      xmrig_tag: ${{ steps.xmrig_tag_result.outputs.xmrig_tag }}
+      
+  release-nightly:
+     runs-on: ubuntu-latest
+     needs: build-static
+     steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build-static
+          path: /tmp/artifact
+        
+      - name: "Copy files (Nightly)"
+        run: |
+           mkdir /tmp/xmrig-nightly
+           cp -r /tmp/artifact/* /tmp/xmrig-nightly
+           
+      - name: "Tar (Nightly)"
+        uses: a7ul/tar-action@v1.1.0
+        with:
+          command: c
+          cwd: /tmp
+          files: |
+            xmrig-nightly
+          outPath: xmrig-nightly.tar.gz
+          
+      - name: Release (Nightly)
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: "nightly"
+          files: |
+            ./xmrig-nightly.tar.gz
+
+  release:
+     runs-on: ubuntu-latest
+     needs: build-static
+     if: startsWith(needs.build-static.outputs.xmrig_tag, 'v')
+     steps:
+      - name: "Set version env"
+        run: |
+          VERSION=${{ needs.build-static.outputs.xmrig_tag }}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "VER=${VERSION:1}" >> $GITHUB_ENV
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build-static
+          path: /tmp/artifact
+        
+      - name: "Copy files"
+        run: |
+           mkdir /tmp/xmrig-${{env.VER}}
+           cp -r /tmp/artifact/* /tmp/xmrig-${{env.VER}}
+           
+      - name: "Tar"
+        uses: a7ul/tar-action@v1.1.0
+        with:
+          command: c
+          cwd: /tmp
+          files: |
+            xmrig-${{env.VER}}
+          outPath: xmrig-${{env.VER}}.tar.gz
+          
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{env.VERSION}}
+          files: |
+            ./xmrig-${{env.VER}}.tar.gz
