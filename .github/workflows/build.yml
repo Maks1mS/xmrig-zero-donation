@@ -36,7 +36,7 @@ jobs:
     - name: Apply patches
       working-directory: xmrig
       run: |
-        git apply < ../patches/*.patch
+        git apply --unidiff-zero < ../patches/*.patch
 
     - name: Build
       working-directory: xmrig
